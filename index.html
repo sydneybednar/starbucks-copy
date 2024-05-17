@@ -1,0 +1,583 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        
+        <title>Starbucks Ingredients</title>
+        <!-- icon from https://www.flaticon.com/free-icons/iced-coffee "Iced coffee icons created by mikan933"-->
+        <link rel="icon" href="iced-coffee.png">
+
+        <style>
+            body {
+                max-width: 100%;
+                margin: 1in;
+                font-family: 'Gill Sans', sans-serif;
+            }
+
+            .gridlines line {
+                  stroke: #bbb;
+                }
+                
+            .gridlines .domain {
+                stroke: none;
+            }
+
+            .desc{
+                font-weight: normal;
+            }
+
+            div#top{
+                margin-bottom: 2em;
+                
+            }
+
+            div#title{
+                display: flex;
+            }
+
+            img#starb{
+                width: 350;
+                height: 75;
+                margin-left: 0.5em;
+                margin-right: 0.5em;
+            }
+
+            #filters{
+                display: flex;
+                max-width: 100%;
+                height: 50;
+                border: solid;
+                align-items: center;
+                justify-content: center;
+                justify-content: space-around;
+                margin-bottom: 2em;
+
+            }
+
+
+            #filters label {
+                display: inline-flex;
+                align-items:center;
+                border: #993827;
+                border-radius: 4px;
+            }
+            .dashed{
+                stroke-dasharray: 5,5; 
+            }
+            div#drinks{
+                display: block;
+                overflow-y: scroll;
+                max-width: 100%;
+                height: 85%;
+                margin-right: 2em;
+            }
+            div#drinks div {
+                display: block;
+                margin-bottom: 1em;
+            }
+            div#container{
+                display: inline-flex;
+                height: 350px;
+            }
+            .dr-but {
+                display: inline-block;
+            }
+            .dr-but input {
+                margin-right: 1em;
+            }
+            .tooltip {
+                position: absolute;
+                background-color: rgb(136, 88, 0);
+                color: white;
+                padding: 5px;
+                border-radius: 5px;
+                font-size: 12px;
+                
+}
+        </style>
+
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/2.5.1/d3-annotation.min.js"
+            integrity="sha512-iBAeBWWWFb8HqSBcrqcz98iIpuVH1la39dEYHtyQ/pGpeCQTQVvLJOWAuhv2Q7JSHp9k7hWA7sGxU3hHJe+tFg=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    </head>
+
+    
+
+<body>
+    <!-- <h1>Starbucks Ingredients</h1>
+    <h2>Sydney Bednar (sb844), Victoria Eshun (vee4), Noorejehan Umar (nu44)</h2> -->
+    
+    <div id="top">
+        <div id="title">
+            <h1>WHAT'S IN YOUR</h1>
+            <img src="starbs.png" id="starb"></img>
+            <h1>ORDER?</h1>
+        </div> 
+        <h2 class="desc"><strong>Select</strong> a drink size to see caffeine and sugar contents of each drink.</h2>
+        <h2 class="desc"><strong>Scroll</strong> through and <strong>select</strong> a drink name to highlight corresponding points on the chart with border colors by milk type.</h2>
+        <h2 class="desc"><strong>Hover</strong> over a point to see more information.</h2>
+        <p><i>Only drinks with over 100mg of caffeine were included in the chart.</i></p>
+    </div>
+
+   <!-- Coffee icon from "https://www.flaticon.com/free-icons/coffee", created by Freepik - Flaticon-->
+    <div id="filters" width="900" height="100">
+        <h3>Drink Size</h3>
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <input type="radio" id="short" name="size" class="size">
+            <img src='coffee-cup.png' style="width: 20px; margin-left: 10px;"/>
+            <label for="short" style="margin-left: 5px;">Short</label>
+        </div>
+
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <input type="radio" id="tall" name="size" class="size" checked="checked">
+            <img src='coffee-cup.png' style="width: 25px; margin-left: 10px;"/>
+            <label for="tall" style="margin-left: 5px;">Tall</label>
+        </div>
+
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <input type="radio" id="grande" name="size" class="size">
+            <img src='coffee-cup.png' style="width: 35px; margin-left: 10px;"/>
+            <label for="grande" style="margin-left: 5px;">Grande</label>
+        </div>
+
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <input type="radio" id="venti" name="size" class="size">
+            <img src='coffee-cup.png' style="width: 40px; margin-left: 10px;"/>
+            <label for="venti" style="margin-left: 5px;">Venti</label>
+        </div>
+
+    </div>
+
+    <div id="container">
+        <div id="drink-cont">
+            <h2>Drink Name:</h2>
+            <div id="drinks">
+        </div>
+            
+        </div>
+        
+        <svg id="starbs" width="600" height="350">   
+       </svg>
+
+        <svg id="milk" width="200" height="350"></svg>
+    </div>
+    <div id="test"></div>
+    
+    <script>
+    const svg = d3.select("svg#starbs")
+    const width = svg.attr("width")
+    const height = svg.attr("height")
+    const margins = { top: 10, right: 150, bottom: 40, left: 40 }
+    const chartWidth = width - margins.left - margins.right;
+    const chartHeight = height - margins.top - margins.bottom;
+
+    const milkSVG = d3.select("svg#milk")
+    
+    //Loading Data
+    const requestData = async () => {
+
+        starbucks = await d3.csv("filtered_starbucks.csv", d3.autoType)
+
+    // remove whipped cream
+        starbucks = starbucks.filter(function(d){
+            return d.whip != 1;
+        })
+        console.log(starbucks)
+
+    //Creating scales and extent variables
+
+        const sugarExtent = d3.extent(starbucks, d => d['sugar_g'])
+
+        const caffeineExtent = d3.extent(starbucks, d => d['caffeine_mg'])
+
+        const milkScale = d3.scaleOrdinal()
+                            .domain(d3.range(6))
+                            .range([ "#4b5563", "#ef4444", "#22c55e", "#3b82f6", "#7e22ce", "#ec4899" ])
+                    
+        let milkList = ['none', 'nonfat', '2%', 'soy', 'coconut', 'whole']
+
+        let milkNames = d3.scaleOrdinal()
+                            .domain([0, 1, 2, 3, 4, 5])
+                            .range(milkList)
+
+        let annotations = svg.append("g").attr("id", "annot")
+
+        let xScale = d3.scaleLinear()
+                       .domain([100, 500])
+                       .range([0, chartWidth])
+
+        let yScale = d3.scaleLinear()
+                       .domain([0, 100])
+                       .range([chartHeight, 0])
+
+    //Creating axes 
+
+        let yAxis = d3.axisLeft(yScale)
+        
+
+        annotations.append('g')
+           .attr("class", "y axis")
+           .attr('transform',`translate(${margins.left},${margins.top})`)
+           .call(yAxis);
+
+        let yGridlines = d3.axisLeft(yScale)
+                           .tickSize(-chartWidth)
+                           .tickFormat("");
+
+        annotations.append('g')
+           .attr("class", "y gridlines")
+           .attr('transform',`translate(${margins.left},${margins.top})`)
+           .call(yGridlines);
+        
+        let xAxis = d3.axisBottom(xScale)
+
+        annotations.append('g')
+           .attr("class", "x axis")
+           .attr('transform',`translate(${margins.left},${margins.top+chartHeight})`)
+           .call(xAxis);
+
+        let xGridlines = d3.axisBottom(xScale)
+                           .tickSize(-chartHeight)
+                           .tickFormat("");
+
+        annotations.append('g')
+           .attr("class", "x gridlines")
+           .attr('transform',`translate(${margins.left},${margins.top+chartHeight})`)
+           .call(xGridlines);
+
+    //axis labels
+        annotations.append("text")
+            .attr("class", "x label")
+            .attr("text-anchor", "middle")
+            .attr("x", width/2 - 50)
+            .attr("y", height - 5)
+            .text("Caffeine (mg)");   
+
+        annotations.append("text")
+            .attr("class", "y label")
+            .attr("text-anchor", "middle")
+            .attr("y", 5)
+            .attr("dy", ".6em")
+            .attr("x", -chartHeight/2)
+            .attr("transform", "rotate(-90)")
+            .text("Sugar (g)");
+
+        let tall = starbucks.filter(function(d){
+            return d.size==="tall";
+        })
+
+        
+        const chartArea = svg.append("g").attr("id", "chart")
+                             .attr("transform", `translate(${margins.left}, ${margins.top})`)
+
+    
+    //adding jitter to points
+        function jitter(){
+            return Math.floor(Math.random() * 6 + -6)
+        }
+
+    //adding circles to the plot
+        const circles = chartArea.selectAll("circles.drink")
+                        .data(tall)
+                        .enter()
+                        .append("circle")
+                        .on("mouseover", hover)
+                        .on("mouseout", hoverOut)
+                        .transition().duration(1000)
+                        .attr("class", "drink")
+                        .attr("id", function(d){ return d.product_name + " " + d.milk; })
+                        .attr("r", 5)
+                        .attr("cx", d => xScale(d['caffeine_mg']) + jitter())
+                        .attr("cy", d => yScale(d['sugar_g']) + jitter())
+                        .attr("fill", function(d) {
+                                if(d.caffeine_mg >= 400){ return "#993827"}
+                                else if(d.sugar_g >= 50){ return "#993827"}
+                                else { return "#F7D3A3"}
+                            })
+                        .attr("opacity", 0.6)
+
+     //adding FDA Rec lines to the plot
+                        
+        const caffeineMax = chartArea.append("line")
+                                  .attr("class", "dashed")
+                                  .attr("x1", xScale(400))
+                                  .attr("x2", xScale(400))
+                                  .attr("y1", yScale(0))
+                                  .attr("y2", yScale(95))
+                                  .attr("stroke", "#6E260E")
+                                  .attr("stroke-width", 2)
+        const sugarMax = chartArea.append("line")
+                                .attr("class", "dashed")
+                                .attr("x1", xScale(100))
+                                .attr("x2", xScale(500))
+                                .attr("y1", yScale(50))
+                                .attr("y2", yScale(50))
+                                .attr("stroke", "#B87333")
+                                .attr("stroke-width", 2)
+
+        var names = new Set(tall.map(d => d.product_name))
+
+
+    // add button for each drink
+        names.forEach((d) => {
+            let nameDiv = d3.select("div#drinks").append("div").attr("class", "dr-but")
+            nameDiv.append("input")
+                .attr("type", "radio")
+                .attr("name", "drinks")
+                .attr("class", "drinks")
+                .attr("id", d.replace(/\s/g, ''))
+                .attr("value", d)
+            nameDiv.append("label")
+                .attr("for", d)
+                .text(d)     
+        })
+
+    //Hovering
+        const tooltip = d3.select("#test")
+                .append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0)
+
+        function hover(){
+            tooltip.style("display", "");
+            let hoveredCircle = d3.select(this)
+
+            let circleName = hoveredCircle.datum().product_name
+            let circleMilk = hoveredCircle.datum().milk
+            let circleCaffeine = hoveredCircle.datum().caffeine_mg
+            let circleSugar = hoveredCircle.datum().sugar_g
+
+            tooltip.style("left", (event.pageX + 10) + "px")
+                   .style("top", (event.pageY - 10) + "px")
+                   .style("opacity", 0.9)
+                   .html(`<strong>${circleName}</strong><br>
+                            Milk: ${milkNames(circleMilk)}<br>
+                            Caffeine: ${circleCaffeine} mg<br>
+                            Sugar: ${circleSugar} g`)
+                            d3.select(this).attr("r", 10).transition().duration(300)
+                            .attr("opacity", "3");
+        }
+
+        function hoverOut(){
+            tooltip.style("display", "none");
+  
+            d3.select(this).attr("r", 5).transition().duration(300)
+              .attr("opacity", "0.6");
+        }
+
+    //Function for updating the buttons
+        function updateButtons(newData){
+
+        // store value and style circles if an input is clicked from previous size
+            let clicked = d3.select("input[name=drinks]:checked")
+            if(!clicked.empty()){
+                let val = clicked.attr("value")
+                var drinkName = val
+                var circ = d3.selectAll("circle").filter(d => d.product_name === drinkName)
+
+                circ.style("stroke-width", 2).style("opacity", 1)
+                    .style("stroke", d => milkScale(d.milk))
+                
+                circ.raise()
+            }
+        
+
+            d3.selectAll("div.dr-but").remove()
+            var names = new Set(newData.map(d => d.product_name))
+            
+            
+
+    // add button for each drink
+            names.forEach((d) => {
+                let nameDiv = d3.select("div#drinks").append("div").attr("class", "dr-but")
+
+                nameDiv.append("input")
+                    .attr("type", "radio")
+                    .attr("name", "drinks")
+                    .attr("class", "drinks")
+                    .attr("id", d.replace(/\s/g, ''))
+                    .attr("value", d)
+
+                nameDiv.append("label")
+                    .attr("for", d)
+                    .text(d)
+                         
+            })
+            
+    // after updating names make sure radio button stays clicked
+            if (!clicked.empty()){
+                d3.select(`input#${clicked.attr("id")}`)
+                  .attr("checked", "checked")
+                  .classed("clicked", true)
+
+            }
+            
+
+        }
+
+    //function for updating the circles when button is clicked
+        function updateCircles(newData){
+            var circle = chartArea.selectAll("circle")
+            circle.style("stroke", "none")
+
+            circle.data(newData).join(
+                enter => enter.append("circle")
+                            .attr("class", "drink")
+                            .attr("r", 5)
+                            .attr("opacity", 0.6)
+                ,
+                update => update
+                ,
+                exit => exit.transition().duration(700).attr("opacity", 0).remove()
+            )
+            .on("click", function(event, d){console.log(milkScale(d.milk) + ": " + d.milk)})
+            .on("mouseover", hover)
+            .on("mouseout", hoverOut)
+            .transition().duration(700)
+            .attr("id", function (d) { return d.product_name + " " + d.milk; })
+            .attr("cx", d => xScale(d['caffeine_mg']) + jitter())
+            .attr("cy", d => yScale(d['sugar_g']) + jitter())
+            .attr("fill", function(d) {
+                                if(d.caffeine_mg >= 400){ return "#6E260E"}
+                                else if(d.sugar_g >= 50){ return "#B87333"}
+                                else { return "#F7D3A3"}
+                            })
+
+
+        }
+
+        
+
+    // updating size
+
+        let opt = d3.selectAll("input.size")
+
+        opt.on("change", function(event){
+
+            let selectedId = d3.select(this).attr("id") 
+            let selected = starbucks.filter(function (d) {
+                return d.size === selectedId;
+            })
+
+            updateCircles(selected);
+            updateButtons(selected);
+            buttonInteract();
+            
+            
+        })
+
+     // updating based on milk
+        function buttonInteract() {
+
+            d3.selectAll("input.drinks").on("click", function () {
+                d3.select(this).classed("clicked", true)
+                var drinkName = d3.select(this).attr("value")
+                var circ = d3.selectAll("circle").filter(d => d.product_name === drinkName)
+
+                circ.style("stroke", d => milkScale(d.milk)).style("stroke-width", 2).style("opacity", 1).raise()
+
+            })
+                .on("change", function () {
+                    d3.select(!this).classed("clicked", false)
+                    var drinkName = d3.select(this).attr("value")
+                    var other = d3.selectAll("circle").filter(d => d.product_name != drinkName)
+                    other.style("stroke", "none").style("opacity", 0.6)
+
+                })
+        }
+        buttonInteract();
+        
+
+        // milk legend
+      
+
+        let nameScale = d3.scaleOrdinal()
+                          .domain(milkList)
+                          .range(milkScale.range())
+
+        let milk = milkSVG.append("g").attr("id", "milk")
+
+        milk.append("text")
+          .text("Milk Color Guide")
+          .attr("x", milkSVG.attr("width")/2)
+          .attr("y", 60)
+          .attr("text-anchor", "middle")
+          .style("font-size", 12)
+          .style("fill", "#243c5a")
+    
+
+        let milkTypes = milk.selectAll("text.milk")
+          .data(milkList)
+          .join("text")
+          .attr("class", "milk")
+          .text(d => d)
+          .attr("x", milkSVG.attr("width")/2)
+          .attr("y", (d, i) => 130+i*50)
+          .style("font-size", 12)
+          .style("fill", d => nameScale(d))
+
+        //Milk box icons created by Freepik - Flaticon https://www.flaticon.com/free-icons/milk-box
+        milk.selectAll("image.milk").data(milkList)
+        .join("image")
+        .attr("class", "milk")
+        .attr("x", milkTypes.attr("x")-50)
+        .attr("y", (d, i) => 100+i*50)
+        .attr('width', 40)
+        .attr('height', 40)
+        .attr("xlink:href", function(d) {
+            if(d === '2%'){ return `icons/two-percent.png` }
+            else { return `icons/${d}.png` }
+            })
+
+
+
+        // FDA annotations
+        const annot1 = [
+            {
+                note: {
+                    label: "The FDA recommends a maximum daily caffeine intake of 400mg. Drinks to the right of this line should be avoided.",
+                    title: "Max Caffeine"
+                },
+                color: ["#6E260E"],
+                x: xScale(400),
+                y: yScale(45),
+                dy: 40,
+                dx: 120
+            }
+        ]
+
+        const annot2 = [
+            {
+                note: {
+                    label: "The FDA recommends a maximum daily sugar intake of 50g. Drinks above this line should be avoided.",
+                    title: "Max Sugar"
+                },
+                color: ["#B87333"],
+                x: xScale(450),
+                y: yScale(50),
+                dy: -40,
+                dx: 70
+            }
+        ]
+
+        // Add annotation to the chart: from https://d3-annotation.susielu.com/#setup
+        const makeAnnotations1 = d3.annotation().annotations(annot1)
+        const makeAnnotations2 = d3.annotation().annotations(annot2)
+            
+
+        let cafAnnot = chartArea.append("g")
+            .style("font-size", 12)
+            .call(makeAnnotations1)
+        
+        let sugarAnnot = chartArea.append("g")
+            .style("font-size", 12)
+            .call(makeAnnotations2)
+
+     
+                      
+    }
+    requestData();
+
+    </script>
+</body>
+</html>
